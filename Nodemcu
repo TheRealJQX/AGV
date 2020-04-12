@@ -1,1 +1,115 @@
 
+AGV_NO = "01" --AGV编号
+AGV_STATE = 0 --AGV状态
+--0无任务
+--1前往用户区域
+--2装载车辆
+--3运往停车点
+--4停泊车辆
+
+
+
+
+flag_0 = 1
+flag_2=1
+flag_Q = 0
+flag_conn=0
+flag_wifi=0
+print("@@")
+
+
+gpio.mode(0, gpio.OUTPUT)
+gpio.write(0, gpio.HIGH)
+
+gpio.mode(1, gpio.OUTPUT)
+gpio.write(1, gpio.LOW)
+--gpio.mode(15, gpio.OUTPUT)
+--gpio.mode(1, gpio.OUTPUT)
+--gpio.mode(3, gpio.FLOAT)
+--gpio.mode(13, gpio.FLOAT)
+--arr = {"AT+LED=OFF\r\n"}
+
+
+wifi.setmode(wifi.STATION)
+wifi.sta.config({ssid="FAST_463136", pwd="15898999553"})
+wifi.sta.connect()
+
+mytimer = tmr.create()
+mytimer:register(1000, 1, function() 
+  if wifi.sta.getip()== nil then
+    print("IP unavaiable, Waiting...")
+  else
+    print("Config done, IP is "..wifi.sta.getip())
+    mytimer:unregister() 
+    conn=net.createConnection(net.TCP, 0) --第二个参数表示是否加密
+     
+      TCPtimer = tmr.create()
+      TCPtimer:register(1000, 1, function() 
+        print("Trying to connect the Server ")    
+        
+        conn:connect(29038,"2174j6945c.iok.la")
+      end)
+      TCPtimer:start()  
+
+-- Info:开头的信息,表示返回服务器的的是AGV的状态
+
+        
+        conn:on("receive", function(Client, data) 
+            print(data)
+            if string.match(data,"beat") then 
+                conn:send("beat\n")
+            end
+                
+        end)
+        
+        conn:on("connection", function(sck, c) 
+            TCPtimer:unregister() 
+            ClientConnectedFlage = 1
+            print("success")
+            conn:send("Info:"..AGV_NO..','..AGV_STATE..'\n')
+            
+          
+            end)
+
+            conn:on("disconnection", function(sck, c) 
+                    ClientConnectedFlage = 0    
+                    print('Disconnected!')
+                          
+                    
+            end)
+
+
+
+  end
+ end)
+mytimer:start()
+
+
+--------------------------------------------
+uart.setup(0,115200,8,uart.PARITY_NONE,uart.STOPBITS_1)
+uart.on("data",function(data)
+    print(data)
+   conn:send(data.."\n")
+   
+    if flag_0==0 then 
+      gpio.write(0, gpio.HIGH)
+      flag_0=1
+    elseif flag_0==1 then
+       gpio.write(0, gpio.LOW)
+       flag_0=0
+     end
+end,0)
+
+-----------------------------------------------------
+
+textimer = tmr.create()
+textimer:register(1000, 1, function() 
+  uart.write(0,'AT\r\n')
+ end)
+textimer:start()
+--file.remove('init.lua')
+
+
+
+-- 这句话写在最后 
+
